@@ -2,9 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
@@ -23,6 +26,16 @@ func (r *UserRepo) Create(ctx context.Context, user *entity.User) error {
 	          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at, updated_at`
 	err := r.db.QueryRow(ctx, query, user.Name, user.Username, user.Email, user.Password, user.Bio, user.ImageURL).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
+		// Check for duplicate username or email
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			// Check for unique constraint violation
+			if pgErr.Code == "23505" { // unique_violation
+				// We need to check which constraint was violated
+				// This is a simplified approach - in production, you'd check the specific constraint name
+				return fmt.Errorf("user already exists: %w", err)
+			}
+		}
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	return nil
@@ -36,6 +49,9 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, err
 		&user.ID, &user.Name, &user.Username, &user.Email, &user.Password,
 		&user.Bio, &user.ImageURL, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, repo.ErrNotFound
+		}
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
 	return &user, nil
@@ -49,6 +65,9 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*entity.User, 
 		&user.ID, &user.Name, &user.Username, &user.Email, &user.Password,
 		&user.Bio, &user.ImageURL, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, repo.ErrNotFound
+		}
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 	return &user, nil
@@ -62,6 +81,9 @@ func (r *UserRepo) GetByUsername(ctx context.Context, username string) (*entity.
 		&user.ID, &user.Name, &user.Username, &user.Email, &user.Password,
 		&user.Bio, &user.ImageURL, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, repo.ErrNotFound
+		}
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
 	}
 	return &user, nil
@@ -72,18 +94,21 @@ func (r *UserRepo) Update(ctx context.Context, user *entity.User) error {
 	          WHERE id = $4 RETURNING updated_at`
 	err := r.db.QueryRow(ctx, query, user.Name, user.Bio, user.ImageURL, user.ID).Scan(&user.UpdatedAt)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return repo.ErrNotFound
+		}
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	return nil
 }
 
-func (r *UserRepo) Search(ctx context.Context, query string) ([]entity.User, error) {
+func (r *UserRepo) Search(ctx context.Context, query string, limit, offset int) ([]entity.User, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, name, username, email, password_hash, bio, profile_picture_url, created_at, updated_at 
 		FROM users 
 		WHERE name ILIKE $1 OR username ILIKE $1
 		ORDER BY created_at DESC
-		LIMIT 20`, "%"+query+"%")
+		LIMIT $2 OFFSET $3`, "%"+query+"%", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search users: %w", err)
 	}

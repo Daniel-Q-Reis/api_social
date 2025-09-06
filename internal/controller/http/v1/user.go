@@ -3,10 +3,12 @@ package v1
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"social/api/internal/controller/http/middleware"
+	"social/api/internal/repo"
 )
 
 type updateProfileRequest struct {
@@ -28,7 +30,11 @@ func (h *Handler) getProfile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userUseCase.GetProfile(r.Context(), username)
 	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get user profile", http.StatusInternalServerError)
 		return
 	}
 
@@ -56,7 +62,11 @@ func (h *Handler) getMyProfile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userUseCase.GetProfile(r.Context(), userID.String())
 	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get user profile", http.StatusInternalServerError)
 		return
 	}
 
@@ -90,6 +100,10 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userUseCase.UpdateProfile(r.Context(), userID, req.Name, req.Bio, req.ImageURL)
 	if err != nil {
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -116,9 +130,23 @@ func (h *Handler) searchUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := h.userUseCase.SearchUsers(r.Context(), query)
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 20 // Default limit
+	}
+	if limit > 100 {
+		limit = 100 // Maximum limit
+	}
+
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+
+	users, err := h.userUseCase.SearchUsers(r.Context(), query, limit, offset)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to search users", http.StatusInternalServerError)
 		return
 	}
 
@@ -162,7 +190,11 @@ func (h *Handler) followUser(w http.ResponseWriter, r *http.Request) {
 	// Get the user to follow
 	user, err := h.userUseCase.GetProfile(r.Context(), username)
 	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get user", http.StatusInternalServerError)
 		return
 	}
 
@@ -196,7 +228,11 @@ func (h *Handler) unfollowUser(w http.ResponseWriter, r *http.Request) {
 	// Get the user to unfollow
 	user, err := h.userUseCase.GetProfile(r.Context(), username)
 	if err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get user", http.StatusInternalServerError)
 		return
 	}
 
@@ -219,9 +255,27 @@ func (h *Handler) getFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	followers, err := h.interactionUseCase.GetFollowers(r.Context(), username)
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 20 // Default limit
+	}
+	if limit > 100 {
+		limit = 100 // Maximum limit
+	}
+
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+
+	followers, err := h.interactionUseCase.GetFollowers(r.Context(), username, limit, offset)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get followers", http.StatusInternalServerError)
 		return
 	}
 
@@ -254,9 +308,27 @@ func (h *Handler) getFollowing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	following, err := h.interactionUseCase.GetFollowing(r.Context(), username)
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 20 // Default limit
+	}
+	if limit > 100 {
+		limit = 100 // Maximum limit
+	}
+
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+
+	following, err := h.interactionUseCase.GetFollowing(r.Context(), username, limit, offset)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		if err == repo.ErrNotFound {
+			http.Error(w, "user not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get following", http.StatusInternalServerError)
 		return
 	}
 

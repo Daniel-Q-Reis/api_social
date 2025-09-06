@@ -34,7 +34,7 @@ func (r *FollowRepo) Delete(ctx context.Context, userID, followerID uuid.UUID) e
 		return fmt.Errorf("failed to delete follow: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("follow relationship not found")
+		return repo.ErrNotFound
 	}
 	return nil
 }
@@ -49,13 +49,14 @@ func (r *FollowRepo) Exists(ctx context.Context, userID, followerID uuid.UUID) (
 	return exists, nil
 }
 
-func (r *FollowRepo) GetFollowers(ctx context.Context, userID uuid.UUID) ([]entity.User, error) {
+func (r *FollowRepo) GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]entity.User, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT u.id, u.name, u.username, u.email, u.password_hash, u.bio, u.profile_picture_url, u.created_at, u.updated_at
 		FROM users u
 		JOIN followers f ON u.id = f.follower_id
 		WHERE f.user_id = $1
-		ORDER BY f.created_at DESC`, userID)
+		ORDER BY f.created_at DESC
+		LIMIT $2 OFFSET $3`, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get followers: %w", err)
 	}
@@ -76,13 +77,14 @@ func (r *FollowRepo) GetFollowers(ctx context.Context, userID uuid.UUID) ([]enti
 	return users, nil
 }
 
-func (r *FollowRepo) GetFollowing(ctx context.Context, followerID uuid.UUID) ([]entity.User, error) {
+func (r *FollowRepo) GetFollowing(ctx context.Context, followerID uuid.UUID, limit, offset int) ([]entity.User, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT u.id, u.name, u.username, u.email, u.password_hash, u.bio, u.profile_picture_url, u.created_at, u.updated_at
 		FROM users u
 		JOIN followers f ON u.id = f.user_id
 		WHERE f.follower_id = $1
-		ORDER BY f.created_at DESC`, followerID)
+		ORDER BY f.created_at DESC
+		LIMIT $2 OFFSET $3`, followerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get following: %w", err)
 	}

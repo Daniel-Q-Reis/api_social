@@ -3,6 +3,8 @@ package v1
 import (
 	"encoding/json"
 	"net/http"
+
+	"social/api/internal/repo"
 )
 
 type registerRequest struct {
@@ -40,10 +42,16 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a real implementation, you would validate the request fields here
-
 	user, err := h.userUseCase.Register(r.Context(), req.Name, req.Username, req.Email, req.Password)
 	if err != nil {
+		if err == repo.ErrDuplicateEmail {
+			http.Error(w, "user with this email already exists", http.StatusConflict)
+			return
+		}
+		if err == repo.ErrDuplicateUsername {
+			http.Error(w, "user with this username already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -83,7 +91,11 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.userUseCase.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		if err == repo.ErrInvalidCredentials {
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "failed to login", http.StatusInternalServerError)
 		return
 	}
 

@@ -28,12 +28,13 @@ func (r *CommentRepo) Create(ctx context.Context, comment *entity.Comment) error
 	return nil
 }
 
-func (r *CommentRepo) GetByPostID(ctx context.Context, postID uuid.UUID) ([]entity.Comment, error) {
+func (r *CommentRepo) GetByPostID(ctx context.Context, postID uuid.UUID, limit, offset int) ([]entity.Comment, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT id, post_id, author_id, content, created_at 
 		FROM comments 
 		WHERE post_id = $1 
-		ORDER BY created_at ASC`, postID)
+		ORDER BY created_at ASC
+		LIMIT $2 OFFSET $3`, postID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get comments by post ID: %w", err)
 	}
@@ -59,7 +60,7 @@ func (r *CommentRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("failed to delete comment: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return fmt.Errorf("comment not found")
+		return repo.ErrNotFound
 	}
 	return nil
 }
