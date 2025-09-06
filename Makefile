@@ -1,119 +1,87 @@
-ifneq ($(wildcard .env),)
-include .env
-export
-else
-$(warning WARNING: .env file not found! Using .env.example)
-include .env.example
-export
-endif
+# Makefile for Social Media API
 
-LOCAL_BIN:=$(CURDIR)/bin
-BASE_STACK = docker compose -f docker-compose.yml
-INTEGRATION_TEST_STACK = $(BASE_STACK) -f docker-compose-integration-test.yml
-ALL_STACK = $(INTEGRATION_TEST_STACK)
+# Variables
+APP_NAME=social-api
+GO_BUILD=go build
+GO_RUN=go run
+GO_TEST=go test
+GO_MOD=go mod
+GO_CLEAN=go clean
 
-# HELP =================================================================================================================
-# This will output the help for each task
-# thanks to https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
-.PHONY: help
+# Default target
+.PHONY: all
+all: build
 
-help: ## Display this help screen
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+# Build the application
+.PHONY: build
+build:
+	$(GO_BUILD) -o $(APP_NAME) cmd/app/main.go
 
-compose-up: ### Run docker compose (without backend and reverse proxy)
-	$(BASE_STACK) up --build -d db rabbitmq && docker compose logs -f
-.PHONY: compose-up
-
-compose-up-all: ### Run docker compose (with backend and reverse proxy)
-	$(BASE_STACK) up --build -d
-.PHONY: compose-up-all
-
-compose-up-integration-test: ### Run docker compose with integration test
-	$(INTEGRATION_TEST_STACK) up --build --abort-on-container-exit --exit-code-from integration-test
-.PHONY: compose-up-integration-test
-
-compose-down: ### Down docker compose
-	$(ALL_STACK) down --remove-orphans
-.PHONY: compose-down
-
-swag-v1: ### swag init
-	swag init -g internal/controller/http/router.go
-.PHONY: swag-v1
-
-proto-v1: ### generate source files from proto
-	protoc --go_out=. \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative \
-		docs/proto/v1/*.proto
-.PHONY: proto-v1
-
-deps: ### deps tidy + verify
-	go mod tidy && go mod verify
-.PHONY: deps
-
-deps-audit: ### check dependencies vulnerabilities
-	govulncheck ./...
-.PHONY: deps-audit
-
-format: ### Run code formatter
-	gofumpt -l -w .
-	gci write . --skip-generated -s standard -s default
-.PHONY: format
-
-run: deps swag-v1 proto-v1 ### swag run for API v1
-	go mod download && \
-	CGO_ENABLED=0 go run -tags migrate ./cmd/app
+# Run the application
 .PHONY: run
+run:
+	$(GO_RUN) cmd/app/main.go
 
-docker-rm-volume: ### remove docker volume
-	docker volume rm go-clean-template_pg-data
-.PHONY: docker-rm-volume
+# Install dependencies
+.PHONY: deps
+deps:
+	$(GO_MOD) tidy
 
-linter-golangci: ### check by golangci linter
-	golangci-lint run
-.PHONY: linter-golangci
+# Clean build files
+.PHONY: clean
+clean:
+	$(GO_CLEAN)
+	rm -f $(APP_NAME)
 
-linter-hadolint: ### check by hadolint linter
-	git ls-files --exclude='Dockerfile*' --ignored | xargs hadolint
-.PHONY: linter-hadolint
-
-linter-dotenv: ### check by dotenv linter
-	dotenv-linter
-.PHONY: linter-dotenv
-
-test: ### run test
-	go test -v -race -covermode atomic -coverprofile=coverage.txt ./internal/...
+# Run tests
 .PHONY: test
+test:
+	$(GO_TEST) -v ./...
 
-integration-test: ### run integration-test
-	go clean -testcache && go test -v ./integration-test/...
-.PHONY: integration-test
+# Run tests with coverage
+.PHONY: test-coverage
+test-coverage:
+	$(GO_TEST) -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
 
-mock: ### run mockgen
-	mockgen -source ./internal/repo/contracts.go -package usecase_test > ./internal/usecase/mocks_repo_test.go
-	mockgen -source ./internal/usecase/contracts.go -package usecase_test > ./internal/usecase/mocks_usecase_test.go
-.PHONY: mock
+# Format code
+.PHONY: fmt
+fmt:
+	go fmt ./...
 
-migrate-create:  ### create new migration
-	migrate create -ext sql -dir migrations '$(word 2,$(MAKECMDGOALS))'
-.PHONY: migrate-create
+# Vet code
+.PHONY: vet
+vet:
+	go vet ./...
 
-migrate-up: ### migration up
-	migrate -path migrations -database '$(PG_URL)?sslmode=disable' up
-.PHONY: migrate-up
+# Run linter
+.PHONY: lint
+lint:
+	golangci-lint run
 
-bin-deps: ### install tools
-	GOBIN=$(LOCAL_BIN) go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-	GOBIN=$(LOCAL_BIN) go install go.uber.org/mock/mockgen@latest
-	GOBIN=$(LOCAL_BIN) go install github.com/swaggo/swag/cmd/swag@latest
-	GOBIN=$(LOCAL_BIN) go install github.com/daixiang0/gci@latest
-	GOBIN=$(LOCAL_BIN) go install mvdan.cc/gofumpt@latest
-	GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-	GOBIN=$(LOCAL_BIN) go install golang.org/x/vuln/cmd/govulncheck@latest
-	GOBIN=$(LOCAL_BIN) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-	GOBIN=$(LOCAL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-.PHONY: bin-deps
+# Install linter
+.PHONY: lint-install
+lint-install:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
-pre-commit: swag-v1 proto-v1 mock format linter-golangci test ### run pre-commit
-.PHONY: pre-commit
+# Run all checks
+.PHONY: check
+check: fmt vet lint test
+
+# Help
+.PHONY: help
+help:
+	@echo "Available targets:"
+	@echo "  all             - Build the application (default)"
+	@echo "  build           - Build the application"
+	@echo "  run             - Run the application"
+	@echo "  deps            - Install dependencies"
+	@echo "  clean           - Clean build files"
+	@echo "  test            - Run tests"
+	@echo "  test-coverage   - Run tests with coverage"
+	@echo "  fmt             - Format code"
+	@echo "  vet             - Vet code"
+	@echo "  lint            - Run linter"
+	@echo "  lint-install    - Install linter"
+	@echo "  check           - Run all checks"
+	@echo "  help            - Show this help"

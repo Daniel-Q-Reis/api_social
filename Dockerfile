@@ -1,29 +1,37 @@
-# Step 1: Modules caching
-FROM golang:1.24.6-alpine3.21 as modules
+# Dockerfile for Social Media API
 
-COPY go.mod go.sum /modules/
+# Build stage
+FROM golang:1.24-alpine AS builder
 
-WORKDIR /modules
-
-RUN go mod download
-
-# Step 2: Builder
-FROM golang:1.24.6-alpine3.21 as builder
-
-COPY --from=modules /go/pkg /go/pkg
-COPY . /app
-
+# Set working directory
 WORKDIR /app
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -tags migrate -o /bin/app ./cmd/app
+# Copy go mod files
+COPY go.mod go.sum ./
 
-# Step 3: Final
-FROM scratch
+# Download dependencies
+RUN go mod download
 
-COPY --from=builder /app/config /config
-COPY --from=builder /app/migrations /migrations
-COPY --from=builder /bin/app /app
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# Copy source code
+COPY . .
 
-CMD ["/app"]
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o social-api cmd/app/main.go
+
+# Final stage
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+# Set working directory
+WORKDIR /root/
+
+# Copy the binary from builder stage
+COPY --from=builder /app/social-api .
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+CMD ["./social-api"]
