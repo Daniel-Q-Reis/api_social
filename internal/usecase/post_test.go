@@ -33,7 +33,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock Create to succeed
 				mockPostRepo.On("Create", mock.Anything, mock.MatchedBy(func(post *entity.Post) bool {
 					return post.AuthorID == authorID && post.Content == content && *post.ImageURL == imageURL
@@ -51,7 +51,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  "", // Empty content
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_, _ *UserRepoMock) {
 				// No need to mock repository as validation happens before repository calls
 			},
 			expectedPost:  nil,
@@ -62,7 +62,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  content,
 			imageURL: stringPtr("invalid-url"), // Invalid URL
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_, _ *UserRepoMock) {
 				// No need to mock repository as validation happens before repository calls
 			},
 			expectedPost:  nil,
@@ -73,7 +73,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock Create to return an error
 				mockPostRepo.On("Create", mock.Anything, mock.Anything).Return(errors.New("database error"))
 			},
@@ -133,7 +133,7 @@ func TestPostService_GetPostByID(t *testing.T) {
 		{
 			name:   "Success",
 			postID: postID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -152,7 +152,7 @@ func TestPostService_GetPostByID(t *testing.T) {
 		{
 			name:   "PostNotFound",
 			postID: postID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return ErrNotFound
 				mockPostRepo.On("GetByID", mock.Anything, postID).Return(nil, repo.ErrNotFound)
 			},
@@ -162,7 +162,7 @@ func TestPostService_GetPostByID(t *testing.T) {
 		{
 			name:   "DatabaseError",
 			postID: postID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return an error
 				mockPostRepo.On("GetByID", mock.Anything, postID).Return(nil, errors.New("database error"))
 			},
@@ -239,6 +239,8 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 				mockUserRepo.On("GetByUsername", mock.Anything, username).Return(user, nil)
 
 				// Mock GetByAuthorID to return posts
+				postID1 := uuid.New()
+				postID2 := uuid.New()
 				posts := []entity.Post{
 					{
 						ID:       postID1,
@@ -255,12 +257,12 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 			},
 			expectedPosts: []entity.Post{
 				{
-					ID:       postID1,
+					ID:       uuid.Nil, // Will be set in the test
 					AuthorID: authorID,
 					Content:  "First post",
 				},
 				{
-					ID:       postID2,
+					ID:       uuid.Nil, // Will be set in the test
 					AuthorID: authorID,
 					Content:  "Second post",
 				},
@@ -272,7 +274,7 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 			username: "nonexistent",
 			limit:    10,
 			offset:   0,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *PostRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return ErrNotFound
 				mockUserRepo.On("GetByUsername", mock.Anything, "nonexistent").Return(nil, repo.ErrNotFound)
 			},
@@ -284,7 +286,7 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *PostRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return an error
 				mockUserRepo.On("GetByUsername", mock.Anything, username).Return(nil, errors.New("database error"))
 			},
@@ -376,7 +378,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			userID:   userID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -404,7 +406,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			userID:   userID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return ErrNotFound
 				mockPostRepo.On("GetByID", mock.Anything, postID).Return(nil, repo.ErrNotFound)
 			},
@@ -417,7 +419,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			userID:   userID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post with different author
 				post := &entity.Post{
 					ID:       postID,
@@ -435,7 +437,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			userID:   userID,
 			content:  "", // Empty content
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -453,7 +455,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			userID:   userID,
 			content:  content,
 			imageURL: &imageURL,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -526,7 +528,7 @@ func TestPostService_DeletePost(t *testing.T) {
 			name:   "Success",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -543,7 +545,7 @@ func TestPostService_DeletePost(t *testing.T) {
 			name:   "PostNotFound",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return ErrNotFound
 				mockPostRepo.On("GetByID", mock.Anything, postID).Return(nil, repo.ErrNotFound)
 			},
@@ -553,7 +555,7 @@ func TestPostService_DeletePost(t *testing.T) {
 			name:   "Unauthorized",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post with different author
 				post := &entity.Post{
 					ID:       postID,
@@ -567,7 +569,7 @@ func TestPostService_DeletePost(t *testing.T) {
 			name:   "DatabaseError",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetByID to return a post
 				post := &entity.Post{
 					ID:       postID,
@@ -634,7 +636,7 @@ func TestPostService_GetFeed(t *testing.T) {
 			userID: userID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetFeed to return posts
 				posts := []entity.Post{
 					{
@@ -661,7 +663,7 @@ func TestPostService_GetFeed(t *testing.T) {
 			userID: userID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetFeed to return empty slice
 				mockPostRepo.On("GetFeed", mock.Anything, userID, 10, 0).Return([]entity.Post{}, nil)
 			},
@@ -673,7 +675,7 @@ func TestPostService_GetFeed(t *testing.T) {
 			userID: userID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockPostRepo *PostRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(mockPostRepo *PostRepoMock, _ *UserRepoMock) {
 				// Mock GetFeed to return an error
 				mockPostRepo.On("GetFeed", mock.Anything, userID, 10, 0).Return(nil, errors.New("database error"))
 			},

@@ -58,7 +58,7 @@ func TestUserService_Register(t *testing.T) {
 			usernameInput: "johndoe",
 			emailInput:    "invalid-email", // Invalid email
 			passwordInput: "password123",
-			setupMock:     func(mockRepo *UserRepoMock) {},
+			setupMock:     func() {},
 			expectedUser:  nil,
 			expectedError: errors.New("validation failed"),
 		},
@@ -68,7 +68,7 @@ func TestUserService_Register(t *testing.T) {
 			usernameInput: "johndoe",
 			emailInput:    "john@example.com",
 			passwordInput: "123", // Too short
-			setupMock:     func(mockRepo *UserRepoMock) {},
+			setupMock:     func() {},
 			expectedUser:  nil,
 			expectedError: errors.New("validation failed"),
 		},

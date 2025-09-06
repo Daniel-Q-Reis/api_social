@@ -85,3 +85,10 @@ help:
 	@echo "  lint-install    - Install linter"
 	@echo "  check           - Run all checks"
 	@echo "  help            - Show this help"
+
+# Integration test target
+.PHONY: compose-up-integration-test
+compose-up-integration-test:
+	docker-compose -f docker-compose-integration-test.yml up -d --build
+	go test -v ./integration-test/...
+	docker-compose -f docker-compose-integration-test.yml down

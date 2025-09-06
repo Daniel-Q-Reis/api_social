@@ -27,7 +27,7 @@ func main() {
 	cfg := config.MustLoad()
 
 	// Connect to database
-	pool, err := pgxpool.New(context.Background(), cfg.PG.URL)
+	pool, err := pgxpool.New(context.Background(), cfg.URL)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Unable to connect to database")
 	}
@@ -64,11 +64,11 @@ func main() {
 
 	// Start server
 	server := &http.Server{
-		Addr:         cfg.HTTPServer.Address,
+		Addr:         cfg.Address,
 		Handler:      r,
-		ReadTimeout:  time.Duration(cfg.HTTPServer.Timeout) * time.Second,
-		WriteTimeout: time.Duration(cfg.HTTPServer.Timeout) * time.Second,
-		IdleTimeout:  time.Duration(cfg.HTTPServer.IdleTimeout) * time.Second,
+		ReadTimeout:  time.Duration(cfg.Timeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.Timeout) * time.Second,
+		IdleTimeout:  time.Duration(cfg.IdleTimeout) * time.Second,
 	}
 
 	// Server run context
@@ -102,7 +102,7 @@ func main() {
 	}()
 
 	// Run the server
-	logger.Info().Str("address", cfg.HTTPServer.Address).Msg("server started")
+	logger.Info().Str("address", cfg.Address).Msg("server started")
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		logger.Fatal().Err(err).Msg("server startup failed")
