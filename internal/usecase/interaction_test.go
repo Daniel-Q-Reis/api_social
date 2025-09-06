@@ -5,12 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
 	"social/api/internal/usecase"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestInteractionService_LikePost(t *testing.T) {
@@ -29,7 +30,7 @@ func TestInteractionService_LikePost(t *testing.T) {
 			name:   "Success",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockLikeRepo *LikeRepoMock, _, _ *UserRepoMock) {
+			setupMock: func(mockLikeRepo *LikeRepoMock, _ *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Create to succeed
 				mockLikeRepo.On("Create", mock.Anything, mock.MatchedBy(func(like *entity.Like) bool {
 					return like.PostID == postID && like.UserID == userID
@@ -41,7 +42,7 @@ func TestInteractionService_LikePost(t *testing.T) {
 			name:   "DatabaseError",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockLikeRepo *LikeRepoMock, _, _ *UserRepoMock) {
+			setupMock: func(mockLikeRepo *LikeRepoMock, _ *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Create to return an error
 				mockLikeRepo.On("Create", mock.Anything, mock.Anything).Return(errors.New("database error"))
 			},
@@ -97,7 +98,7 @@ func TestInteractionService_UnlikePost(t *testing.T) {
 			name:   "Success",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockLikeRepo *LikeRepoMock, _, _ *UserRepoMock) {
+			setupMock: func(mockLikeRepo *LikeRepoMock, _ *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Delete to succeed
 				mockLikeRepo.On("Delete", mock.Anything, userID, postID).Return(nil)
 			},
@@ -107,7 +108,7 @@ func TestInteractionService_UnlikePost(t *testing.T) {
 			name:   "DatabaseError",
 			postID: postID,
 			userID: userID,
-			setupMock: func(mockLikeRepo *LikeRepoMock, _, _ *UserRepoMock) {
+			setupMock: func(mockLikeRepo *LikeRepoMock, _ *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Delete to return an error
 				mockLikeRepo.On("Delete", mock.Anything, userID, postID).Return(errors.New("database error"))
 			},
@@ -175,7 +176,7 @@ func TestInteractionService_FollowUser(t *testing.T) {
 			name:       "CannotFollowSelf",
 			userID:     userID,
 			followerID: userID, // Same as userID
-			setupMock: func(_, _, _ *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, _ *FollowRepoMock, _ *UserRepoMock) {
 				// No need to mock repository as validation happens before repository calls
 			},
 			expectedError: errors.New("you cannot follow yourself"),
@@ -298,11 +299,11 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 
 	// Test cases
 	tests := []struct {
-		name             string
-		username         string
-		limit            int
-		offset           int
-		setupMock        func(*LikeRepoMock, *FollowRepoMock, *UserRepoMock)
+		name              string
+		username          string
+		limit             int
+		offset            int
+		setupMock         func(*LikeRepoMock, *FollowRepoMock, *UserRepoMock)
 		expectedFollowers []entity.User
 		expectedError     error
 	}{
@@ -311,7 +312,7 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return a user
 				user := &entity.User{
 					ID:       userID,
@@ -361,7 +362,7 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 			username: "nonexistent",
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return ErrNotFound
 				mockUserRepo.On("GetByUsername", mock.Anything, "nonexistent").Return(nil, repo.ErrNotFound)
 			},
@@ -373,7 +374,7 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return an error
 				mockUserRepo.On("GetByUsername", mock.Anything, username).Return(nil, errors.New("database error"))
 			},
@@ -385,7 +386,7 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(mockLikeRepo *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return a user
 				user := &entity.User{
 					ID:       userID,
@@ -420,7 +421,7 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -466,7 +467,7 @@ func TestInteractionService_GetFollowing(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return a user
 				user := &entity.User{
 					ID:       userID,
@@ -516,7 +517,7 @@ func TestInteractionService_GetFollowing(t *testing.T) {
 			username: "nonexistent",
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return ErrNotFound
 				mockUserRepo.On("GetByUsername", mock.Anything, "nonexistent").Return(nil, repo.ErrNotFound)
 			},
@@ -528,7 +529,7 @@ func TestInteractionService_GetFollowing(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(_, _, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, _ *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return an error
 				mockUserRepo.On("GetByUsername", mock.Anything, username).Return(nil, errors.New("database error"))
 			},
@@ -540,7 +541,7 @@ func TestInteractionService_GetFollowing(t *testing.T) {
 			username: username,
 			limit:    10,
 			offset:   0,
-			setupMock: func(mockLikeRepo *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, mockUserRepo *UserRepoMock) {
 				// Mock GetByUsername to return a user
 				user := &entity.User{
 					ID:       userID,
@@ -575,7 +576,7 @@ func TestInteractionService_GetFollowing(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())

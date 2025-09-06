@@ -5,12 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
 	"social/api/internal/usecase"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestPostService_CreatePost(t *testing.T) {
@@ -51,7 +52,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  "", // Empty content
 			imageURL: &imageURL,
-			setupMock: func(_, _ *UserRepoMock) {
+			setupMock: func(_ *PostRepoMock, _ *UserRepoMock) {
 				// No need to mock repository as validation happens before repository calls
 			},
 			expectedPost:  nil,
@@ -62,7 +63,7 @@ func TestPostService_CreatePost(t *testing.T) {
 			authorID: authorID,
 			content:  content,
 			imageURL: stringPtr("invalid-url"), // Invalid URL
-			setupMock: func(_, _ *UserRepoMock) {
+			setupMock: func(_ *PostRepoMock, _ *UserRepoMock) {
 				// No need to mock repository as validation happens before repository calls
 			},
 			expectedPost:  nil,
@@ -189,7 +190,7 @@ func TestPostService_GetPostByID(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -239,8 +240,6 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 				mockUserRepo.On("GetByUsername", mock.Anything, username).Return(user, nil)
 
 				// Mock GetByAuthorID to return posts
-				postID1 := uuid.New()
-				postID2 := uuid.New()
 				posts := []entity.Post{
 					{
 						ID:       postID1,
@@ -257,12 +256,12 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 			},
 			expectedPosts: []entity.Post{
 				{
-					ID:       uuid.Nil, // Will be set in the test
+					ID:       postID1,
 					AuthorID: authorID,
 					Content:  "First post",
 				},
 				{
-					ID:       uuid.Nil, // Will be set in the test
+					ID:       postID2,
 					AuthorID: authorID,
 					Content:  "Second post",
 				},
@@ -332,7 +331,7 @@ func TestPostService_GetPostsByUser(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -490,7 +489,7 @@ func TestPostService_UpdatePost(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound || tt.expectedError == repo.ErrUnauthorized {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) || errors.Is(tt.expectedError, repo.ErrUnauthorized) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -602,7 +601,7 @@ func TestPostService_DeletePost(t *testing.T) {
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
-				if tt.expectedError == repo.ErrNotFound || tt.expectedError == repo.ErrUnauthorized {
+				if errors.Is(tt.expectedError, repo.ErrNotFound) || errors.Is(tt.expectedError, repo.ErrUnauthorized) {
 					assert.Equal(t, tt.expectedError, err)
 				} else {
 					assert.Contains(t, err.Error(), tt.expectedError.Error())
