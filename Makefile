@@ -36,12 +36,12 @@ clean:
 # Run tests
 .PHONY: test
 test:
-	$(GO_TEST) -v ./...
+	$(GO_TEST) -v $(shell go list ./... | grep -v /integration-test)
 
 # Run tests with coverage
 .PHONY: test-coverage
 test-coverage:
-	$(GO_TEST) -coverprofile=coverage.out ./...
+	$(GO_TEST) -coverprofile=coverage.out $(shell go list ./... | grep -v /integration-test)
 	go tool cover -html=coverage.out
 
 # Format code
@@ -89,6 +89,6 @@ help:
 # Integration test target
 .PHONY: compose-up-integration-test
 compose-up-integration-test:
-	docker-compose -f docker-compose-integration-test.yml up -d --build
+	docker compose -f docker-compose-integration-test.yml up -d --build
 	go test -v ./integration-test/...
-	docker-compose -f docker-compose-integration-test.yml down
+	docker compose -f docker-compose-integration-test.yml down

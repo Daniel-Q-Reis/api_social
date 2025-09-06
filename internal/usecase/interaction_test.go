@@ -240,7 +240,7 @@ func TestInteractionService_UnfollowUser(t *testing.T) {
 			name:       "Success",
 			userID:     userID,
 			followerID: followerID,
-			setupMock: func(_, mockFollowRepo *FollowRepoMock, _) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Delete to succeed
 				mockFollowRepo.On("Delete", mock.Anything, userID, followerID).Return(nil)
 			},
@@ -250,7 +250,7 @@ func TestInteractionService_UnfollowUser(t *testing.T) {
 			name:       "DatabaseError",
 			userID:     userID,
 			followerID: followerID,
-			setupMock: func(_, mockFollowRepo *FollowRepoMock, _) {
+			setupMock: func(_ *LikeRepoMock, mockFollowRepo *FollowRepoMock, _ *UserRepoMock) {
 				// Mock Delete to return an error
 				mockFollowRepo.On("Delete", mock.Anything, userID, followerID).Return(errors.New("database error"))
 			},
