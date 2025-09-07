@@ -52,6 +52,7 @@ func TestCommentService_AddComment(t *testing.T) {
 
 			s := usecase.NewCommentUseCase(tt.mockCommentRepo, tt.mockUserRepo, mockPostRepo)
 			got, err := s.AddComment(context.Background(), tt.postID, tt.userID, tt.content)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CommentService.AddComment() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -65,12 +66,14 @@ func TestCommentService_AddComment(t *testing.T) {
 				if got.PostID != tt.postID {
 					t.Errorf("CommentService.AddComment() PostID = %v, want %v", got.PostID, tt.postID)
 				}
+
 				if got.AuthorID != tt.userID {
 					t.Errorf("CommentService.AddComment() AuthorID = %v, want %v", got.AuthorID, tt.userID)
 				}
 				if got.Content != tt.content {
 					t.Errorf("CommentService.AddComment() Content = %v, want %v", got.Content, tt.content)
 				}
+
 				if got.ID == uuid.Nil {
 					t.Errorf("CommentService.AddComment() ID should not be nil")
 				}
@@ -105,7 +108,7 @@ func TestCommentService_GetComments(t *testing.T) {
 			postID: postID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, mockPostRepo *PostRepoMock) {
 				// Mock GetByID to return a post (verify post exists)
 				post := &entity.Post{
 					ID:       postID,
@@ -152,7 +155,7 @@ func TestCommentService_GetComments(t *testing.T) {
 			postID: postID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(_ *CommentRepoMock, _ *UserRepoMock, mockPostRepo *PostRepoMock) {
 				// Mock GetByID to return ErrNotFound
 				mockPostRepo.On("GetByID", mock.Anything, postID).Return(nil, repo.ErrNotFound)
 			},
@@ -164,7 +167,7 @@ func TestCommentService_GetComments(t *testing.T) {
 			postID: postID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, mockPostRepo *PostRepoMock) {
 				// Mock GetByID to return a post (verify post exists)
 				post := &entity.Post{
 					ID:       postID,
@@ -184,7 +187,7 @@ func TestCommentService_GetComments(t *testing.T) {
 			postID: postID,
 			limit:  10,
 			offset: 0,
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, mockPostRepo *PostRepoMock) {
 				// Mock GetByID to return a post (verify post exists)
 				post := &entity.Post{
 					ID:       postID,
@@ -228,6 +231,7 @@ func TestCommentService_GetComments(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Len(t, comments, len(tt.expectedComments))
+
 				for i, expectedComment := range tt.expectedComments {
 					assert.Equal(t, expectedComment.ID, comments[i].ID)
 					assert.Equal(t, expectedComment.PostID, comments[i].PostID)
@@ -259,7 +263,7 @@ func TestCommentService_DeleteComment(t *testing.T) {
 			name:      "Success",
 			commentID: commentID,
 			userID:    uuid.New(),
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, _ *PostRepoMock) {
 				// Mock Delete to succeed
 				mockCommentRepo.On("Delete", mock.Anything, commentID).Return(nil)
 			},
@@ -269,7 +273,7 @@ func TestCommentService_DeleteComment(t *testing.T) {
 			name:      "CommentNotFound",
 			commentID: commentID,
 			userID:    uuid.New(),
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, _ *PostRepoMock) {
 				// Mock Delete to return ErrNotFound
 				mockCommentRepo.On("Delete", mock.Anything, commentID).Return(repo.ErrNotFound)
 			},
@@ -279,7 +283,7 @@ func TestCommentService_DeleteComment(t *testing.T) {
 			name:      "DatabaseError",
 			commentID: commentID,
 			userID:    uuid.New(),
-			setupMock: func(mockCommentRepo *CommentRepoMock, mockUserRepo *UserRepoMock, mockPostRepo *PostRepoMock) {
+			setupMock: func(mockCommentRepo *CommentRepoMock, _ *UserRepoMock, _ *PostRepoMock) {
 				// Mock Delete to return an error
 				mockCommentRepo.On("Delete", mock.Anything, commentID).Return(errors.New("database error"))
 			},

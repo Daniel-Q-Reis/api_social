@@ -45,6 +45,7 @@ func (s *userService) Register(ctx context.Context, name, username, email, passw
 		log.Warn().Str("email", email).Msg("user with this email already exists")
 		return nil, repo.ErrDuplicateEmail
 	}
+
 	if !errors.Is(err, repo.ErrNotFound) {
 		log.Error().Err(err).Str("email", email).Msg("failed to check email")
 		return nil, fmt.Errorf("failed to check email: %w", err)
@@ -93,6 +94,7 @@ func (s *userService) Login(ctx context.Context, email, password string) (string
 			log.Warn().Str("email", email).Msg("login failed: user not found")
 			return "", repo.ErrInvalidCredentials
 		}
+
 		log.Error().Err(err).Str("email", email).Msg("failed to get user")
 		return "", fmt.Errorf("failed to get user: %w", err)
 	}
@@ -119,6 +121,7 @@ func (s *userService) GetProfile(ctx context.Context, username string) (*entity.
 			log.Warn().Str("username", username).Msg("user not found")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("username", username).Msg("failed to get user")
 		return nil, err
 	}
@@ -139,6 +142,7 @@ func (s *userService) UpdateProfile(ctx context.Context, userID uuid.UUID, name,
 			log.Warn().Str("userID", userID.String()).Msg("user not found")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("userID", userID.String()).Msg("failed to get user")
 		return nil, err
 	}

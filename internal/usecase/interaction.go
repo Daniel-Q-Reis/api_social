@@ -17,7 +17,7 @@ type interactionService struct {
 	userRepo   repo.User
 }
 
-func NewInteractionUseCase(likeRepo repo.Like, followRepo repo.Follow, userRepo repo.User) *interactionService {
+func NewInteractionUseCase(likeRepo repo.Like, followRepo repo.Follow, userRepo repo.User) Interaction {
 	return &interactionService{
 		likeRepo:   likeRepo,
 		followRepo: followRepo,

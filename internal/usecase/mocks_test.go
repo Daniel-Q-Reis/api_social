@@ -26,6 +26,7 @@ func (m *UserRepoMock) Create(ctx context.Context, user *entity.User) error {
 func (m *UserRepoMock) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
 	args := m.Called(ctx, id)
 	user, ok := args.Get(0).(*entity.User)
+
 	if !ok && args.Get(0) != nil {
 		return nil, args.Error(1)
 	}
@@ -81,6 +82,7 @@ func (m *PostRepoMock) Create(ctx context.Context, post *entity.Post) error {
 func (m *PostRepoMock) GetByID(ctx context.Context, id uuid.UUID) (*entity.Post, error) {
 	args := m.Called(ctx, id)
 	post, ok := args.Get(0).(*entity.Post)
+
 	if !ok && args.Get(0) != nil {
 		return nil, args.Error(1)
 	}
@@ -90,6 +92,7 @@ func (m *PostRepoMock) GetByID(ctx context.Context, id uuid.UUID) (*entity.Post,
 func (m *PostRepoMock) GetByAuthorID(ctx context.Context, authorID uuid.UUID, limit, offset int) ([]entity.Post, error) {
 	args := m.Called(ctx, authorID, limit, offset)
 	posts, ok := args.Get(0).([]entity.Post)
+
 	if !ok && args.Get(0) != nil {
 		return nil, args.Error(1)
 	}
@@ -99,6 +102,7 @@ func (m *PostRepoMock) GetByAuthorID(ctx context.Context, authorID uuid.UUID, li
 func (m *PostRepoMock) GetFeed(ctx context.Context, userID uuid.UUID, limit, offset int) ([]entity.Post, error) {
 	args := m.Called(ctx, userID, limit, offset)
 	posts, ok := args.Get(0).([]entity.Post)
+
 	if !ok && args.Get(0) != nil {
 		return nil, args.Error(1)
 	}
@@ -186,6 +190,7 @@ func (m *FollowRepoMock) Exists(ctx context.Context, userID, followerID uuid.UUI
 func (m *FollowRepoMock) GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]entity.User, error) {
 	args := m.Called(ctx, userID, limit, offset)
 	users, ok := args.Get(0).([]entity.User)
+
 	if !ok && args.Get(0) != nil {
 		return nil, args.Error(1)
 	}

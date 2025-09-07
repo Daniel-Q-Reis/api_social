@@ -59,6 +59,7 @@ func (s *postService) GetPostByID(ctx context.Context, postID uuid.UUID) (*entit
 			log.Warn().Str("postID", postID.String()).Msg("post not found")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get post")
 		return nil, err
 	}
@@ -77,6 +78,7 @@ func (s *postService) GetPostsByUser(ctx context.Context, username string, limit
 			log.Warn().Str("username", username).Msg("user not found")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("username", username).Msg("failed to get user")
 		return nil, err
 	}
@@ -101,6 +103,7 @@ func (s *postService) UpdatePost(ctx context.Context, postID, userID uuid.UUID, 
 			log.Warn().Str("postID", postID.String()).Msg("post not found")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get post")
 		return nil, err
 	}
@@ -141,6 +144,7 @@ func (s *postService) DeletePost(ctx context.Context, postID, userID uuid.UUID) 
 			log.Warn().Str("postID", postID.String()).Msg("post not found")
 			return err
 		}
+
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get post")
 		return err
 	}

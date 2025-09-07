@@ -17,22 +17,22 @@ import (
 
 func TestUserService_Register(t *testing.T) {
 	tests := []struct {
-		name        string
-		mockRepo    *UserRepoMock
-		userName    string
-		username    string
-		email       string
-		password    string
-		want        *entity.User
-		wantErr     bool
+		name     string
+		mockRepo *UserRepoMock
+		userName string
+		username string
+		email    string
+		password string
+		want     *entity.User
+		wantErr  bool
 	}{
 		{
-			name:        "ValidUser",
-			mockRepo:    &UserRepoMock{},
-			userName:    "John Doe",
-			username:    "johndoe",
-			email:       "john@example.com",
-			password:    "password123",
+			name:     "ValidUser",
+			mockRepo: &UserRepoMock{},
+			userName: "John Doe",
+			username: "johndoe",
+			email:    "john@example.com",
+			password: "password123",
 			want: &entity.User{
 				Name:     "John Doe",
 				Username: "johndoe",
@@ -102,7 +102,10 @@ func TestUserService_Register(t *testing.T) {
 
 func TestUserService_Login(t *testing.T) {
 	// Hash a password for testing
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("Failed to hash password: %v", err)
+	}
 
 	// Test cases
 	tests := []struct {
