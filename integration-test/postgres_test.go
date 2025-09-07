@@ -5,16 +5,17 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"social/api/internal/entity"
 	repoInterface "social/api/internal/repo"
 	"social/api/internal/repo/postgres"
 	pg "social/api/pkg/postgres"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-type Postgres_TestSuite struct {
+type PostgresTestSuite struct {
 	suite.Suite
 	db       *pg.Postgres
 	userRepo repoInterface.User
@@ -59,7 +60,7 @@ func (suite *Postgres_TestSuite) SetupTest() {
 		"DELETE FROM followers",
 		"DELETE FROM users",
 	}
-	
+
 	for _, query := range queries {
 		_, err := suite.db.Pool.Exec(context.Background(), query)
 		if err != nil {
@@ -79,11 +80,11 @@ func (suite *Postgres_TestSuite) TestUserRepo() {
 		Bio:      stringPtr("This is my bio"),
 		ImageURL: stringPtr("https://example.com/image.jpg"),
 	}
-	
+
 	err := suite.userRepo.Create(context.Background(), user)
 	assert.NoError(suite.T(), err)
 	assert.NotEqual(suite.T(), uuid.Nil, user.ID)
-	
+
 	// Test GetByID
 	retrievedUser, err := suite.userRepo.GetByID(context.Background(), user.ID)
 	assert.NoError(suite.T(), err)
@@ -94,38 +95,38 @@ func (suite *Postgres_TestSuite) TestUserRepo() {
 	assert.Equal(suite.T(), user.Password, retrievedUser.Password)
 	assert.Equal(suite.T(), *user.Bio, *retrievedUser.Bio)
 	assert.Equal(suite.T(), *user.ImageURL, *retrievedUser.ImageURL)
-	
+
 	// Test GetByEmail
 	retrievedUser, err = suite.userRepo.GetByEmail(context.Background(), user.Email)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), user.Email, retrievedUser.Email)
-	
+
 	// Test GetByUsername
 	retrievedUser, err = suite.userRepo.GetByUsername(context.Background(), user.Username)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), user.Username, retrievedUser.Username)
-	
+
 	// Test Update
 	newName := "Jane Doe"
 	newBio := "Updated bio"
 	user.Name = newName
 	user.Bio = &newBio
-	
+
 	err = suite.userRepo.Update(context.Background(), user)
 	assert.NoError(suite.T(), err)
-	
+
 	// Verify update
 	updatedUser, err := suite.userRepo.GetByID(context.Background(), user.ID)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), newName, updatedUser.Name)
 	assert.Equal(suite.T(), newBio, *updatedUser.Bio)
-	
+
 	// Test Search
 	users, err := suite.userRepo.Search(context.Background(), "joh", 10, 0)
 	assert.NoError(suite.T(), err)
 	assert.Len(suite.T(), users, 1)
 	assert.Equal(suite.T(), user.Username, users[0].Username)
-	
+
 	// Test duplicate email
 	duplicateUser := &entity.User{
 		Name:     "Jane Smith",
@@ -133,11 +134,11 @@ func (suite *Postgres_TestSuite) TestUserRepo() {
 		Email:    "john@example.com", // Same email
 		Password: "hashed_password",
 	}
-	
+
 	err = suite.userRepo.Create(context.Background(), duplicateUser)
 	assert.Error(suite.T(), err)
 	assert.Contains(suite.T(), err.Error(), "user already exists")
-	
+
 	// Test duplicate username
 	duplicateUser2 := &entity.User{
 		Name:     "Jane Smith",
@@ -145,7 +146,7 @@ func (suite *Postgres_TestSuite) TestUserRepo() {
 		Email:    "jane@example.com",
 		Password: "hashed_password",
 	}
-	
+
 	err = suite.userRepo.Create(context.Background(), duplicateUser2)
 	assert.Error(suite.T(), err)
 	assert.Contains(suite.T(), err.Error(), "user already exists")
@@ -160,21 +161,21 @@ func (suite *Postgres_TestSuite) TestPostRepo() {
 		Email:    "john@example.com",
 		Password: "hashed_password",
 	}
-	
+
 	err := suite.userRepo.Create(context.Background(), user)
 	assert.NoError(suite.T(), err)
-	
+
 	// Test Create
 	post := &entity.Post{
 		AuthorID: user.ID,
 		Content:  "This is a test post",
 		ImageURL: stringPtr("https://example.com/post-image.jpg"),
 	}
-	
+
 	err = suite.postRepo.Create(context.Background(), post)
 	assert.NoError(suite.T(), err)
 	assert.NotEqual(suite.T(), uuid.Nil, post.ID)
-	
+
 	// Test GetByID
 	retrievedPost, err := suite.postRepo.GetByID(context.Background(), post.ID)
 	assert.NoError(suite.T(), err)
@@ -182,29 +183,29 @@ func (suite *Postgres_TestSuite) TestPostRepo() {
 	assert.Equal(suite.T(), post.AuthorID, retrievedPost.AuthorID)
 	assert.Equal(suite.T(), post.Content, retrievedPost.Content)
 	assert.Equal(suite.T(), *post.ImageURL, *retrievedPost.ImageURL)
-	
+
 	// Test GetByAuthorID
 	posts, err := suite.postRepo.GetByAuthorID(context.Background(), user.ID, 10, 0)
 	assert.NoError(suite.T(), err)
 	assert.Len(suite.T(), posts, 1)
 	assert.Equal(suite.T(), post.ID, posts[0].ID)
-	
+
 	// Test Update
 	newContent := "Updated post content"
 	post.Content = newContent
-	
+
 	err = suite.postRepo.Update(context.Background(), post)
 	assert.NoError(suite.T(), err)
-	
+
 	// Verify update
 	updatedPost, err := suite.postRepo.GetByID(context.Background(), post.ID)
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), newContent, updatedPost.Content)
-	
+
 	// Test Delete
 	err = suite.postRepo.Delete(context.Background(), post.ID)
 	assert.NoError(suite.T(), err)
-	
+
 	// Verify deletion
 	_, err = suite.postRepo.GetByID(context.Background(), post.ID)
 	assert.Error(suite.T(), err)
@@ -215,7 +216,7 @@ func TestPostgresSuite(t *testing.T) {
 	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
 		t.Skip("Skipping integration tests")
 	}
-	
+
 	suite.Run(t, new(Postgres_TestSuite))
 }
 

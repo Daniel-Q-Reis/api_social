@@ -5,16 +5,17 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"social/api/internal/entity"
 	repoInterface "social/api/internal/repo"
 	"social/api/internal/repo/postgres"
 	pg "social/api/pkg/postgres"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-type PostgresInteraction_TestSuite struct {
+type PostgresInteractionTestSuite struct {
 	suite.Suite
 	db          *pg.Postgres
 	userRepo    repoInterface.User

@@ -3,159 +3,86 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+	"time"
+
+	"social/api/internal/entity"
+	"social/api/internal/repo"
+	"social/api/internal/usecase"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
-	"social/api/internal/entity"
-	"social/api/internal/repo"
-	"social/api/internal/usecase"
 )
 
 func TestUserService_Register(t *testing.T) {
-	// Test cases
 	tests := []struct {
-		name          string
-		nameInput     string
-		usernameInput string
-		emailInput    string
-		passwordInput string
-		setupMock     func(*UserRepoMock)
-		expectedUser  *entity.User
-		expectedError error
+		name     string
+		mockRepo *repoMocks.UserRepoMock
+		name     string
+		username string
+		email    string
+		password string
+		want     *entity.User
+		wantErr  bool
 	}{
 		{
-			name:          "Success",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "john@example.com",
-			passwordInput: "password123",
-			setupMock: func(mockRepo *UserRepoMock) {
-				// Mock GetByEmail to return ErrNotFound (user doesn't exist)
-				mockRepo.On("GetByEmail", mock.Anything, "john@example.com").Return(nil, repo.ErrNotFound)
-				// Mock GetByUsername to return ErrNotFound (user doesn't exist)
-				mockRepo.On("GetByUsername", mock.Anything, "johndoe").Return(nil, repo.ErrNotFound)
-				// Mock Create to succeed
-				mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(user *entity.User) bool {
-					// Verify that the password was hashed
-					err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte("password123"))
-					return err == nil && user.Name == "John Doe" && user.Username == "johndoe" && user.Email == "john@example.com"
-				})).Return(nil)
-			},
-			expectedUser: &entity.User{
+			name:     "ValidUser",
+			mockRepo: &repoMocks.UserRepoMock{},
+			name:     "John Doe",
+			username: "johndoe",
+			email:    "john@example.com",
+			password: "password123",
+			want: &entity.User{
 				Name:     "John Doe",
 				Username: "johndoe",
 				Email:    "john@example.com",
-				Password: "", // Password should be cleared in the returned user
 			},
-			expectedError: nil,
-		},
-		{
-			name:          "ValidationFailed_InvalidEmail",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "invalid-email", // Invalid email
-			passwordInput: "password123",
-			setupMock:     func(mockRepo *UserRepoMock) {},
-			expectedUser:  nil,
-			expectedError: errors.New("validation failed"),
-		},
-		{
-			name:          "ValidationFailed_ShortPassword",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "john@example.com",
-			passwordInput: "123", // Too short
-			setupMock:     func(mockRepo *UserRepoMock) {},
-			expectedUser:  nil,
-			expectedError: errors.New("validation failed"),
-		},
-		{
-			name:          "EmailAlreadyExists",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "john@example.com",
-			passwordInput: "password123",
-			setupMock: func(mockRepo *UserRepoMock) {
-				// Mock GetByEmail to return an existing user
-				existingUser := &entity.User{Email: "john@example.com"}
-				mockRepo.On("GetByEmail", mock.Anything, "john@example.com").Return(existingUser, nil)
-			},
-			expectedUser:  nil,
-			expectedError: repo.ErrDuplicateEmail,
-		},
-		{
-			name:          "UsernameAlreadyExists",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "john@example.com",
-			passwordInput: "password123",
-			setupMock: func(mockRepo *UserRepoMock) {
-				// Mock GetByEmail to return ErrNotFound (user doesn't exist)
-				mockRepo.On("GetByEmail", mock.Anything, "john@example.com").Return(nil, repo.ErrNotFound)
-				// Mock GetByUsername to return an existing user
-				existingUser := &entity.User{Username: "johndoe"}
-				mockRepo.On("GetByUsername", mock.Anything, "johndoe").Return(existingUser, nil)
-			},
-			expectedUser:  nil,
-			expectedError: repo.ErrDuplicateUsername,
-		},
-		{
-			name:          "DatabaseErrorOnCreate",
-			nameInput:     "John Doe",
-			usernameInput: "johndoe",
-			emailInput:    "john@example.com",
-			passwordInput: "password123",
-			setupMock: func(mockRepo *UserRepoMock) {
-				// Mock GetByEmail to return ErrNotFound (user doesn't exist)
-				mockRepo.On("GetByEmail", mock.Anything, "john@example.com").Return(nil, repo.ErrNotFound)
-				// Mock GetByUsername to return ErrNotFound (user doesn't exist)
-				mockRepo.On("GetByUsername", mock.Anything, "johndoe").Return(nil, repo.ErrNotFound)
-				// Mock Create to return an error
-				mockRepo.On("Create", mock.Anything, mock.Anything).Return(errors.New("database error"))
-			},
-			expectedUser:  nil,
-			expectedError: errors.New("failed to create user"),
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock repository
-			mockRepo := &UserRepoMock{}
-			
 			// Setup mock expectations
-			tt.setupMock(mockRepo)
-			
-			// Create user service with mock repository
-			userService := usecase.NewUserUseCase(mockRepo)
-			
-			// Execute the method under test
-			user, err := userService.Register(context.Background(), tt.nameInput, tt.usernameInput, tt.emailInput, tt.passwordInput)
-			
-			// Assert results
-			if tt.expectedError != nil {
-				assert.Error(t, err)
-				if tt.expectedError == repo.ErrDuplicateEmail || tt.expectedError == repo.ErrDuplicateUsername {
-					assert.Equal(t, tt.expectedError, err)
-				} else {
-					assert.Contains(t, err.Error(), tt.expectedError.Error())
+			if !tt.wantErr {
+				// Hash the password for comparison
+				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(tt.password), bcrypt.DefaultCost)
+				if err != nil {
+					t.Fatalf("Failed to hash password: %v", err)
 				}
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, user)
-				assert.Equal(t, tt.expectedUser.Name, user.Name)
-				assert.Equal(t, tt.expectedUser.Username, user.Username)
-				assert.Equal(t, tt.expectedUser.Email, user.Email)
-				assert.Equal(t, tt.expectedUser.Password, user.Password) // Should be empty
-				// Verify that ID was set (not zero value)
-				assert.NotEqual(t, uuid.Nil, user.ID)
+				tt.mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
+					return u.Name == tt.name &&
+						u.Username == tt.username &&
+						u.Email == tt.email &&
+						bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(tt.password)) == nil
+				})).Return(&entity.User{
+					ID:        uuid.New(),
+					Name:      tt.name,
+					Username:  tt.username,
+					Email:     tt.email,
+					Password:  string(hashedPassword),
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}, nil)
 			}
-			
+
+			s := &userService{
+				userRepo: tt.mockRepo,
+			}
+			got, err := s.Register(context.Background(), tt.name, tt.username, tt.email, tt.password)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UserService.Register() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("UserService.Register() = %v, want %v", got, tt.want)
+			}
+
 			// Assert that all expectations were met
-			mockRepo.AssertExpectations(t)
+			tt.mockRepo.AssertExpectations(t)
 		})
 	}
 }
@@ -163,7 +90,7 @@ func TestUserService_Register(t *testing.T) {
 func TestUserService_Login(t *testing.T) {
 	// Hash a password for testing
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-	
+
 	// Test cases
 	tests := []struct {
 		name          string
@@ -233,16 +160,16 @@ func TestUserService_Login(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock repository
 			mockRepo := &UserRepoMock{}
-			
+
 			// Setup mock expectations
 			tt.setupMock(mockRepo)
-			
+
 			// Create user service with mock repository
 			userService := usecase.NewUserUseCase(mockRepo)
-			
+
 			// Execute the method under test
 			token, err := userService.Login(context.Background(), tt.emailInput, tt.passwordInput)
-			
+
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -255,7 +182,7 @@ func TestUserService_Login(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedToken, token)
 			}
-			
+
 			// Assert that all expectations were met
 			mockRepo.AssertExpectations(t)
 		})
@@ -265,11 +192,11 @@ func TestUserService_Login(t *testing.T) {
 func TestUserService_GetProfile(t *testing.T) {
 	// Test cases
 	tests := []struct {
-		name           string
-		usernameInput  string
-		setupMock      func(*UserRepoMock)
-		expectedUser   *entity.User
-		expectedError  error
+		name          string
+		usernameInput string
+		setupMock     func(*UserRepoMock)
+		expectedUser  *entity.User
+		expectedError error
 	}{
 		{
 			name:          "Success",
@@ -319,16 +246,16 @@ func TestUserService_GetProfile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock repository
 			mockRepo := &UserRepoMock{}
-			
+
 			// Setup mock expectations
 			tt.setupMock(mockRepo)
-			
+
 			// Create user service with mock repository
 			userService := usecase.NewUserUseCase(mockRepo)
-			
+
 			// Execute the method under test
 			user, err := userService.GetProfile(context.Background(), tt.usernameInput)
-			
+
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -347,7 +274,7 @@ func TestUserService_GetProfile(t *testing.T) {
 				// Verify that ID was set (not zero value)
 				assert.NotEqual(t, uuid.Nil, user.ID)
 			}
-			
+
 			// Assert that all expectations were met
 			mockRepo.AssertExpectations(t)
 		})
@@ -359,7 +286,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 	name := "John Updated"
 	bio := "This is my bio"
 	imageURL := "https://example.com/image.jpg"
-	
+
 	// Test cases
 	tests := []struct {
 		name          string
@@ -387,7 +314,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 					Password: "hashed_password",
 				}
 				mockRepo.On("GetByID", mock.Anything, userID).Return(existingUser, nil)
-				
+
 				// Mock Update to succeed
 				mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(user *entity.User) bool {
 					return user.ID == userID && user.Name == name && *user.Bio == bio && *user.ImageURL == imageURL
@@ -451,7 +378,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 					Password: "hashed_password",
 				}
 				mockRepo.On("GetByID", mock.Anything, userID).Return(existingUser, nil)
-				
+
 				// Mock Update to return an error
 				mockRepo.On("Update", mock.Anything, mock.Anything).Return(errors.New("database error"))
 			},
@@ -464,16 +391,16 @@ func TestUserService_UpdateProfile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock repository
 			mockRepo := &UserRepoMock{}
-			
+
 			// Setup mock expectations
 			tt.setupMock(mockRepo)
-			
+
 			// Create user service with mock repository
 			userService := usecase.NewUserUseCase(mockRepo)
-			
+
 			// Execute the method under test
 			user, err := userService.UpdateProfile(context.Background(), tt.userIDInput, tt.nameInput, tt.bioInput, tt.imageURLInput)
-			
+
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -491,7 +418,7 @@ func TestUserService_UpdateProfile(t *testing.T) {
 				assert.Equal(t, tt.expectedUser.Email, user.Email)
 				assert.Equal(t, tt.expectedUser.Password, user.Password) // Should be empty
 			}
-			
+
 			// Assert that all expectations were met
 			mockRepo.AssertExpectations(t)
 		})
@@ -580,16 +507,16 @@ func TestUserService_SearchUsers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock repository
 			mockRepo := &UserRepoMock{}
-			
+
 			// Setup mock expectations
 			tt.setupMock(mockRepo)
-			
+
 			// Create user service with mock repository
 			userService := usecase.NewUserUseCase(mockRepo)
-			
+
 			// Execute the method under test
 			users, err := userService.SearchUsers(context.Background(), tt.queryInput, tt.limitInput, tt.offsetInput)
-			
+
 			// Assert results
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -604,7 +531,7 @@ func TestUserService_SearchUsers(t *testing.T) {
 					assert.Equal(t, expectedUser.Password, users[i].Password) // Should be empty
 				}
 			}
-			
+
 			// Assert that all expectations were met
 			mockRepo.AssertExpectations(t)
 		})

@@ -16,8 +16,8 @@ func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// In a real implementation, you would validate the JWT token here
 		// For now, we'll just check for an Authorization header and extract a user ID
-		
 		authHeader := r.Header.Get("Authorization")
+
 		if authHeader == "" {
 			http.Error(w, "authorization header required", http.StatusUnauthorized)
 			return

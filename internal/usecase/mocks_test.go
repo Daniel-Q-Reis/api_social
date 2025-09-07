@@ -3,9 +3,10 @@ package usecase_test
 import (
 	"context"
 
+	"social/api/internal/entity"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
-	"social/api/internal/entity"
 )
 
 // UserRepoMock is a mock implementation of repo.User interface

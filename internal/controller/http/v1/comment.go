@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"social/api/internal/controller/http/middleware"
 	"social/api/internal/repo"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type addCommentRequest struct {
@@ -78,7 +79,12 @@ func (h *Handler) addComment(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
@@ -99,11 +105,13 @@ func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
 	if err != nil || limit <= 0 {
 		limit = 20 // Default limit
 	}
+
 	if limit > 100 {
 		limit = 100 // Maximum limit
 	}
 
 	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+
 	if err != nil || offset < 0 {
 		offset = 0 // Default offset
 	}
@@ -134,7 +142,12 @@ func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) deleteComment(w http.ResponseWriter, r *http.Request) {

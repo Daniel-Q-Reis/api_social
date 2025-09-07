@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	"social/api/internal/entity"
+	"social/api/internal/repo"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"social/api/internal/entity"
-	"social/api/internal/repo"
 )
 
 type userService struct {
@@ -50,10 +51,12 @@ func (s *userService) Register(ctx context.Context, name, username, email, passw
 	}
 
 	_, err = s.userRepo.GetByUsername(ctx, username)
+
 	if err == nil {
 		log.Warn().Str("username", username).Msg("user with this username already exists")
 		return nil, repo.ErrDuplicateUsername
 	}
+
 	if !errors.Is(err, repo.ErrNotFound) {
 		log.Error().Err(err).Str("username", username).Msg("failed to check username")
 		return nil, fmt.Errorf("failed to check username: %w", err)
@@ -143,9 +146,11 @@ func (s *userService) UpdateProfile(ctx context.Context, userID uuid.UUID, name,
 	if name != nil {
 		user.Name = *name
 	}
+
 	if bio != nil {
 		user.Bio = bio
 	}
+
 	if imageURL != nil {
 		user.ImageURL = imageURL
 	}

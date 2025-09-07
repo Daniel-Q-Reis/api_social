@@ -3,8 +3,9 @@ package usecase
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"social/api/internal/entity"
+
+	"github.com/google/uuid"
 )
 
 type User interface {

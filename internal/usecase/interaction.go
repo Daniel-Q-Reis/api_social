@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
+
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type interactionService struct {
@@ -16,7 +17,7 @@ type interactionService struct {
 	userRepo   repo.User
 }
 
-func NewInteractionUseCase(likeRepo repo.Like, followRepo repo.Follow, userRepo repo.User) Interaction {
+func NewInteractionUseCase(likeRepo repo.Like, followRepo repo.Follow, userRepo repo.User) *interactionService {
 	return &interactionService{
 		likeRepo:   likeRepo,
 		followRepo: followRepo,
@@ -25,104 +26,119 @@ func NewInteractionUseCase(likeRepo repo.Like, followRepo repo.Follow, userRepo 
 }
 
 func (s *interactionService) LikePost(ctx context.Context, postID, userID uuid.UUID) error {
-	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg("liking post")
-
-	like := &entity.Like{
-		UserID: userID,
-		PostID: postID,
-	}
-
-	err := s.likeRepo.Create(ctx, like)
-	if err != nil {
-		log.Error().Err(err).Str("postID", postID.String()).Str("userID", userID.String()).Msg("failed to like post")
-		return fmt.Errorf("failed to like post: %w", err)
-	}
-
-	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg("post liked successfully")
-
-	return nil
+	return s.handleLikeInteraction(ctx, postID, userID, true)
 }
 
 func (s *interactionService) UnlikePost(ctx context.Context, postID, userID uuid.UUID) error {
-	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg("unliking post")
+	return s.handleLikeInteraction(ctx, postID, userID, false)
+}
 
-	err := s.likeRepo.Delete(ctx, userID, postID)
-	if err != nil {
-		log.Error().Err(err).Str("postID", postID.String()).Str("userID", userID.String()).Msg("failed to unlike post")
-		return fmt.Errorf("failed to unlike post: %w", err)
+func (s *interactionService) FollowUser(ctx context.Context, userID, followerID uuid.UUID) error {
+	return s.handleFollowInteraction(ctx, userID, followerID, true)
+}
+
+func (s *interactionService) UnfollowUser(ctx context.Context, userID, followerID uuid.UUID) error {
+	return s.handleFollowInteraction(ctx, userID, followerID, false)
+}
+
+func (s *interactionService) handleLikeInteraction(ctx context.Context, postID, userID uuid.UUID, isLike bool) error {
+	action := "liking"
+	if !isLike {
+		action = "unliking"
 	}
 
-	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg("post unliked successfully")
+	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg(action + " post")
+
+	var err error
+
+	if isLike {
+		like := &entity.Like{
+			UserID: userID,
+			PostID: postID,
+		}
+		err = s.likeRepo.Create(ctx, like)
+	} else {
+		err = s.likeRepo.Delete(ctx, userID, postID)
+	}
+
+	if err != nil {
+		action = "like"
+		if !isLike {
+			action = "unlike"
+		}
+
+		log.Error().Err(err).Str("postID", postID.String()).Str("userID", userID.String()).Msg("failed to " + action + " post")
+
+		return fmt.Errorf("failed to %s post: %w", action, err)
+	}
+
+	action = "liked"
+	if !isLike {
+		action = "unliked"
+	}
+
+	log.Info().Str("postID", postID.String()).Str("userID", userID.String()).Msg("post " + action + " successfully")
 
 	return nil
 }
 
-func (s *interactionService) FollowUser(ctx context.Context, userID, followerID uuid.UUID) error {
-	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("following user")
+func (s *interactionService) handleFollowInteraction(ctx context.Context, userID, followerID uuid.UUID, isFollow bool) error {
+	action := "following"
+	if !isFollow {
+		action = "unfollowing"
+	}
+
+	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg(action + " user")
 
 	// Prevent users from following themselves
-	if userID == followerID {
+	if isFollow && userID == followerID {
 		log.Warn().Str("userID", userID.String()).Msg("user attempted to follow themselves")
 		return fmt.Errorf("you cannot follow yourself")
 	}
 
-	follow := &entity.Follow{
-		UserID:     userID,
-		FollowerID: followerID,
+	var err error
+
+	if isFollow {
+		follow := &entity.Follow{
+			UserID:     userID,
+			FollowerID: followerID,
+		}
+		err = s.followRepo.Create(ctx, follow)
+	} else {
+		err = s.followRepo.Delete(ctx, userID, followerID)
 	}
 
-	err := s.followRepo.Create(ctx, follow)
 	if err != nil {
-		log.Error().Err(err).Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("failed to follow user")
-		return fmt.Errorf("failed to follow user: %w", err)
+		action = "follow"
+		if !isFollow {
+			action = "unfollow"
+		}
+
+		log.Error().Err(err).Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("failed to " + action + " user")
+
+		return fmt.Errorf("failed to %s user: %w", action, err)
 	}
 
-	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("user followed successfully")
-
-	return nil
-}
-
-func (s *interactionService) UnfollowUser(ctx context.Context, userID, followerID uuid.UUID) error {
-	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("unfollowing user")
-
-	err := s.followRepo.Delete(ctx, userID, followerID)
-	if err != nil {
-		log.Error().Err(err).Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("failed to unfollow user")
-		return fmt.Errorf("failed to unfollow user: %w", err)
+	action = "followed"
+	if !isFollow {
+		action = "unfollowed"
 	}
 
-	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("user unfollowed successfully")
+	log.Info().Str("userID", userID.String()).Str("followerID", followerID.String()).Msg("user " + action + " successfully")
 
 	return nil
 }
 
 func (s *interactionService) GetFollowers(ctx context.Context, username string, limit, offset int) ([]entity.User, error) {
-	log.Info().Str("username", username).Int("limit", limit).Int("offset", offset).Msg("fetching followers")
-
-	user, err := s.userRepo.GetByUsername(ctx, username)
-	if err != nil {
-		log.Error().Err(err).Str("username", username).Msg("failed to get user")
-		return nil, err
-	}
-
-	followers, err := s.followRepo.GetFollowers(ctx, user.ID, limit, offset)
-	if err != nil {
-		log.Error().Err(err).Str("userID", user.ID.String()).Msg("failed to get followers")
-		return nil, fmt.Errorf("failed to get followers: %w", err)
-	}
-
-	log.Info().Str("userID", user.ID.String()).Int("follower_count", len(followers)).Msg("followers fetched successfully")
-
-	// Clear passwords before returning
-	for i := range followers {
-		followers[i].Password = ""
-	}
-
-	return followers, nil
+	return s.getUsersByRelation(ctx, username, limit, offset, true)
 }
 
 func (s *interactionService) GetFollowing(ctx context.Context, username string, limit, offset int) ([]entity.User, error) {
-	log.Info().Str("username", username).Int("limit", limit).Int("offset", offset).Msg("fetching following")
+	return s.getUsersByRelation(ctx, username, limit, offset, false)
+}
+
+func (s *interactionService) getUsersByRelation(ctx context.Context, username string, limit, offset int, isFollowers bool) ([]entity.User, error) {
+	log.Info().Str("username", username).Int("limit", limit).Int("offset", offset).Msg("fetching users by relation")
 
 	user, err := s.userRepo.GetByUsername(ctx, username)
 	if err != nil {
@@ -130,18 +146,30 @@ func (s *interactionService) GetFollowing(ctx context.Context, username string, 
 		return nil, err
 	}
 
-	following, err := s.followRepo.GetFollowing(ctx, user.ID, limit, offset)
-	if err != nil {
-		log.Error().Err(err).Str("userID", user.ID.String()).Msg("failed to get following")
-		return nil, fmt.Errorf("failed to get following: %w", err)
-	}
+	var users []entity.User
 
-	log.Info().Str("userID", user.ID.String()).Int("following_count", len(following)).Msg("following fetched successfully")
+	if isFollowers {
+		users, err = s.followRepo.GetFollowers(ctx, user.ID, limit, offset)
+		if err != nil {
+			log.Error().Err(err).Str("userID", user.ID.String()).Msg("failed to get followers")
+			return nil, fmt.Errorf("failed to get followers: %w", err)
+		}
+
+		log.Info().Str("userID", user.ID.String()).Int("follower_count", len(users)).Msg("followers fetched successfully")
+	} else {
+		users, err = s.followRepo.GetFollowing(ctx, user.ID, limit, offset)
+		if err != nil {
+			log.Error().Err(err).Str("userID", user.ID.String()).Msg("failed to get following")
+			return nil, fmt.Errorf("failed to get following: %w", err)
+		}
+
+		log.Info().Str("userID", user.ID.String()).Int("following_count", len(users)).Msg("following fetched successfully")
+	}
 
 	// Clear passwords before returning
-	for i := range following {
-		following[i].Password = ""
+	for i := range users {
+		users[i].Password = ""
 	}
 
-	return following, nil
+	return users, nil
 }

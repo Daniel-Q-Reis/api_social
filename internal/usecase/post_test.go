@@ -5,12 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
 	"social/api/internal/usecase"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestPostService_CreatePost(t *testing.T) {

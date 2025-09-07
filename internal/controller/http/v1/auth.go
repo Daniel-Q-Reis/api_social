@@ -48,10 +48,12 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "user with this email already exists", http.StatusConflict)
 			return
 		}
+
 		if err == repo.ErrDuplicateUsername {
 			http.Error(w, "user with this username already exists", http.StatusConflict)
 			return
 		}
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -79,7 +81,12 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
@@ -112,5 +119,10 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }

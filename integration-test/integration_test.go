@@ -7,7 +7,8 @@ import (
 
 func TestMain(m *testing.M) {
 	// Skip integration tests if running in a CI environment without database
-	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
+	const skipIntegrationTests = "true"
+	if os.Getenv("SKIP_INTEGRATION_TESTS") == skipIntegrationTests {
 		return
 	}
 

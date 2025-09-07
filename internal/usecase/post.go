@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
+
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type postService struct {

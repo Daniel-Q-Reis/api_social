@@ -5,12 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
 	"social/api/internal/usecase"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestInteractionService_LikePost(t *testing.T) {
@@ -298,11 +299,11 @@ func TestInteractionService_GetFollowers(t *testing.T) {
 
 	// Test cases
 	tests := []struct {
-		name             string
-		username         string
-		limit            int
-		offset           int
-		setupMock        func(*LikeRepoMock, *FollowRepoMock, *UserRepoMock)
+		name              string
+		username          string
+		limit             int
+		offset            int
+		setupMock         func(*LikeRepoMock, *FollowRepoMock, *UserRepoMock)
 		expectedFollowers []entity.User
 		expectedError     error
 	}{

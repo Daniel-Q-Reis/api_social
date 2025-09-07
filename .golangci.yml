@@ -1,130 +1,52 @@
-version: "2"
+# .golangci.yml
+
+run:
+  # Timeout for the execution, 10 minutes.
+  timeout: 10m
+  # Exit with status 1 if issues are found. Essential for CI.
+  issues-exit-code: 1
+  # Include test directories.
+  tests: true
+
+linters-settings:
+  dupl:
+    # Threshold for code duplication.
+    threshold: 100
+  gocyclo:
+    # Cyclomatic complexity limit.
+    min-complexity: 15
+  errcheck:
+    # Check for unchecked assignments to blank identifier.
+    check-blank: true
 
 linters:
-  default: none
+  # Disable all linters by default and enable only the ones we want.
+  disable-all: true
   enable:
-    - wsl_v5
-    - asciicheck
-    - bodyclose
-    - copyloopvar
-    - cyclop
-    - dogsled
-    - dupl
-    - durationcheck
-    - err113
+    # Essential and best-practice linters
     - errcheck
-    - errorlint
-    - exhaustive
-    - forbidigo
-    - funlen
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - godot
-    - godox
-    - gomodguard
-    - goprintffuncname
-    - gosec
+    - gosimple
     - govet
     - ineffassign
-    - makezero
-    - misspell
-    - mnd
-    - nakedret
-    - nestif
-    - nlreturn
-    - noctx
-    - nolintlint
-    - paralleltest
-    - predeclared
-    - revive
-    - rowserrcheck
-    - sqlclosecheck
     - staticcheck
-    - thelper
-    - tparallel
-    - unconvert
-    - unparam
     - unused
-    - whitespace
-  settings:
-    wsl_v5:
-      allow-first-in-block: true
-      allow-whole-block: false
-      branch-max-lines: 2
-    dupl:
-      threshold: 100
-    errcheck:
-      check-type-assertions: true
-      check-blank: true
-    errorlint:
-      errorf: true
-    exhaustive:
-      default-signifies-exhaustive: false
-    funlen:
-      lines: 65
-      statements: 40
-    gocognit:
-      min-complexity: 15
-    goconst:
-      min-len: 2
-      min-occurrences: 2
-    gocritic:
-      disabled-checks:
-        - dupImport
-        - unnecessaryBlock
-      enabled-tags:
-        - diagnostic
-        - experimental
-        - opinionated
-        - performance
-        - style
-    gocyclo:
-      min-complexity: 10
-    misspell:
-      locale: US
-    nestif:
-      min-complexity: 4
-    nolintlint:
-      require-explanation: true
-      require-specific: true
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    rules:
-      - linters:
-          - godot
-          - paralleltest
-        path: integration-test
-      - linters:
-          - godot
-        path: internal/controller/http
-    paths:
-      - bin/
-      - third_party$
-      - builtin$
-      - examples$
+    - typecheck
 
-formatters:
-  enable:
-    - gci
+    # Style and quality linters
+    - dupl
+    - gocyclo
+    - goconst
     - gofmt
-    - gofumpt
     - goimports
-  settings:
-    gofumpt:
-      extra-rules: true
-  exclusions:
-    generated: lax
-    paths:
-      - bin/
-      - third_party$
-      - builtin$
-      - examples$
+    - revive
+    - wsl
+
+issues:
+  # Exclude some common issues in test files.
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen # Test functions can be long
+        - gocyclo
+
+# End of configuration

@@ -8,14 +8,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog"
 	"social/api/config"
 	v1 "social/api/internal/controller/http/v1"
 	"social/api/internal/repo/postgres"
 	"social/api/internal/usecase"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
 func main() {
@@ -77,6 +78,7 @@ func main() {
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
 	go func() {
 		<-sig
 
@@ -86,6 +88,7 @@ func main() {
 
 		go func() {
 			<-shutdownCtx.Done()
+
 			if shutdownCtx.Err() == context.DeadlineExceeded {
 				logger.Fatal().Msg("graceful shutdown timed out.. forcing exit.")
 			}
@@ -93,6 +96,7 @@ func main() {
 
 		// Trigger graceful shutdown
 		err := server.Shutdown(shutdownCtx)
+
 		if err != nil {
 			logger.Fatal().Err(err).Msg("server shutdown failed")
 		}
@@ -103,6 +107,7 @@ func main() {
 
 	// Run the server
 	logger.Info().Str("address", cfg.HTTPServer.Address).Msg("server started")
+
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		logger.Fatal().Err(err).Msg("server startup failed")

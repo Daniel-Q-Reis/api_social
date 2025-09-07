@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"social/api/internal/entity"
 	"social/api/internal/repo"
+
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type commentService struct {
@@ -35,7 +36,9 @@ func (s *commentService) AddComment(ctx context.Context, postID, userID uuid.UUI
 			log.Warn().Str("postID", postID.String()).Msg("post not found when adding comment")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get post")
+
 		return nil, err
 	}
 
@@ -72,11 +75,14 @@ func (s *commentService) GetComments(ctx context.Context, postID uuid.UUID, limi
 			log.Warn().Str("postID", postID.String()).Msg("post not found when fetching comments")
 			return nil, err
 		}
+
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get post")
+
 		return nil, err
 	}
 
 	comments, err := s.commentRepo.GetByPostID(ctx, postID, limit, offset)
+
 	if err != nil {
 		log.Error().Err(err).Str("postID", postID.String()).Msg("failed to get comments")
 		return nil, fmt.Errorf("failed to get comments: %w", err)
@@ -92,14 +98,16 @@ func (s *commentService) DeleteComment(ctx context.Context, commentID, userID uu
 
 	// In a real implementation, you would fetch the comment to verify ownership
 	// For now, we'll just delete it directly
-	
+
 	err := s.commentRepo.Delete(ctx, commentID)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {
 			log.Warn().Str("commentID", commentID.String()).Msg("comment not found")
 			return err
 		}
-		log.Error().Err(err).Str("commentID", commentID.String()).Msg("failed to delete comment")
+
+		log.Error().Err(err).Str("commentID", commentID.String()).Msg("failed to get comment")
+
 		return fmt.Errorf("failed to delete comment: %w", err)
 	}
 

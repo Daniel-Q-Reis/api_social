@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"social/api/internal/controller/http/middleware"
 	"social/api/internal/repo"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type createPostRequest struct {
@@ -66,7 +67,12 @@ func (h *Handler) createPost(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) getPostByID(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +110,12 @@ func (h *Handler) getPostByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) getPostsByUser(w http.ResponseWriter, r *http.Request) {
@@ -119,11 +130,13 @@ func (h *Handler) getPostsByUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil || limit <= 0 {
 		limit = 20 // Default limit
 	}
+
 	if limit > 100 {
 		limit = 100 // Maximum limit
 	}
 
 	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+
 	if err != nil || offset < 0 {
 		offset = 0 // Default offset
 	}
@@ -155,7 +168,12 @@ func (h *Handler) getPostsByUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {
@@ -189,10 +207,12 @@ func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "post not found", http.StatusNotFound)
 			return
 		}
+
 		if err == repo.ErrUnauthorized {
 			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
+
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -209,7 +229,12 @@ func (h *Handler) updatePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) deletePost(w http.ResponseWriter, r *http.Request) {
@@ -237,10 +262,12 @@ func (h *Handler) deletePost(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "post not found", http.StatusNotFound)
 			return
 		}
+
 		if err == repo.ErrUnauthorized {
 			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
+
 		http.Error(w, "failed to delete post", http.StatusInternalServerError)
 		return
 	}
@@ -260,11 +287,13 @@ func (h *Handler) getFeed(w http.ResponseWriter, r *http.Request) {
 	if err != nil || limit <= 0 {
 		limit = 20 // Default limit
 	}
+
 	if limit > 100 {
 		limit = 100 // Maximum limit
 	}
 
 	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+
 	if err != nil || offset < 0 {
 		offset = 0 // Default offset
 	}
@@ -292,38 +321,23 @@ func (h *Handler) getFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) likePost(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.UserContextKey).(uuid.UUID)
-	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	postIDStr := chi.URLParam(r, "postID")
-	if postIDStr == "" {
-		http.Error(w, "post ID is required", http.StatusBadRequest)
-		return
-	}
-
-	postID, err := uuid.Parse(postIDStr)
-	if err != nil {
-		http.Error(w, "invalid post ID", http.StatusBadRequest)
-		return
-	}
-
-	err = h.interactionUseCase.LikePost(r.Context(), postID, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	h.handlePostInteraction(w, r, true)
 }
 
 func (h *Handler) unlikePost(w http.ResponseWriter, r *http.Request) {
+	h.handlePostInteraction(w, r, false)
+}
+
+func (h *Handler) handlePostInteraction(w http.ResponseWriter, r *http.Request, isLike bool) {
 	userID, ok := r.Context().Value(middleware.UserContextKey).(uuid.UUID)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -342,7 +356,12 @@ func (h *Handler) unlikePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.interactionUseCase.UnlikePost(r.Context(), postID, userID)
+	if isLike {
+		err = h.interactionUseCase.LikePost(r.Context(), postID, userID)
+	} else {
+		err = h.interactionUseCase.UnlikePost(r.Context(), postID, userID)
+	}
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
