@@ -2,30 +2,35 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"social/api/config"
 	v1 "social/api/internal/controller/http/v1"
 	"social/api/internal/repo/postgres"
 	"social/api/internal/usecase"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
 func main() {
+	// Initialize logger
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).With().Timestamp().Logger()
+
 	// Load configuration
 	cfg := config.MustLoad()
 
 	// Connect to database
 	pool, err := pgxpool.New(context.Background(), cfg.PG.URL)
 	if err != nil {
-		log.Fatal("Unable to connect to database:", err)
+		logger.Fatal().Err(err).Msg("Unable to connect to database")
 	}
 	defer pool.Close()
 
@@ -73,6 +78,7 @@ func main() {
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
 	go func() {
 		<-sig
 
@@ -82,15 +88,17 @@ func main() {
 
 		go func() {
 			<-shutdownCtx.Done()
+
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Fatal("graceful shutdown timed out.. forcing exit.")
+				logger.Fatal().Msg("graceful shutdown timed out.. forcing exit.")
 			}
 		}()
 
 		// Trigger graceful shutdown
 		err := server.Shutdown(shutdownCtx)
+
 		if err != nil {
-			log.Fatal("server shutdown failed:", err)
+			logger.Fatal().Err(err).Msg("server shutdown failed")
 		}
 
 		// Cancel server context to close database connections
@@ -98,14 +106,15 @@ func main() {
 	}()
 
 	// Run the server
-	log.Printf("server started on %s", cfg.HTTPServer.Address)
+	logger.Info().Str("address", cfg.HTTPServer.Address).Msg("server started")
+
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatal("server startup failed:", err)
+		logger.Fatal().Err(err).Msg("server startup failed")
 	}
 
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
 
-	log.Println("server exited properly")
+	logger.Info().Msg("server exited properly")
 }

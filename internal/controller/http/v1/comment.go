@@ -3,10 +3,13 @@ package v1
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"social/api/internal/controller/http/middleware"
+	"social/api/internal/repo"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"social/api/internal/controller/http/middleware"
 )
 
 type addCommentRequest struct {
@@ -56,6 +59,10 @@ func (h *Handler) addComment(w http.ResponseWriter, r *http.Request) {
 
 	comment, err := h.commentUseCase.AddComment(r.Context(), postID, userID, req.Content)
 	if err != nil {
+		if err == repo.ErrNotFound {
+			http.Error(w, "post not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -72,7 +79,12 @@ func (h *Handler) addComment(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
@@ -88,9 +100,29 @@ func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comments, err := h.commentUseCase.GetComments(r.Context(), postID)
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 20 // Default limit
+	}
+
+	if limit > 100 {
+		limit = 100 // Maximum limit
+	}
+
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+
+	comments, err := h.commentUseCase.GetComments(r.Context(), postID, limit, offset)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if err == repo.ErrNotFound {
+			http.Error(w, "post not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to get comments", http.StatusInternalServerError)
 		return
 	}
 
@@ -110,7 +142,12 @@ func (h *Handler) getComments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		// Log the error but don't fail the request
+		// In a production environment, you might want to log this
+		_ = err // Explicitly ignore the error
+	}
 }
 
 func (h *Handler) deleteComment(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +171,11 @@ func (h *Handler) deleteComment(w http.ResponseWriter, r *http.Request) {
 
 	err = h.commentUseCase.DeleteComment(r.Context(), commentID, userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		if err == repo.ErrNotFound {
+			http.Error(w, "comment not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to delete comment", http.StatusInternalServerError)
 		return
 	}
 

@@ -1,9 +1,10 @@
 package v1
 
 import (
-	"github.com/go-chi/chi/v5"
 	"social/api/internal/controller/http/middleware"
 	"social/api/internal/usecase"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
