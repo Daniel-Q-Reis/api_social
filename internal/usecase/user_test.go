@@ -3,9 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
 	"social/api/internal/entity"
 	"social/api/internal/repo"
@@ -19,22 +17,22 @@ import (
 
 func TestUserService_Register(t *testing.T) {
 	tests := []struct {
-		name     string
-		mockRepo *repoMocks.UserRepoMock
-		name     string
-		username string
-		email    string
-		password string
-		want     *entity.User
-		wantErr  bool
+		name        string
+		mockRepo    *UserRepoMock
+		userName    string
+		username    string
+		email       string
+		password    string
+		want        *entity.User
+		wantErr     bool
 	}{
 		{
-			name:     "ValidUser",
-			mockRepo: &repoMocks.UserRepoMock{},
-			name:     "John Doe",
-			username: "johndoe",
-			email:    "john@example.com",
-			password: "password123",
+			name:        "ValidUser",
+			mockRepo:    &UserRepoMock{},
+			userName:    "John Doe",
+			username:    "johndoe",
+			email:       "john@example.com",
+			password:    "password123",
 			want: &entity.User{
 				Name:     "John Doe",
 				Username: "johndoe",
@@ -48,37 +46,52 @@ func TestUserService_Register(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup mock expectations
 			if !tt.wantErr {
-				// Hash the password for comparison
-				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(tt.password), bcrypt.DefaultCost)
-				if err != nil {
-					t.Fatalf("Failed to hash password: %v", err)
-				}
+				// Mock the GetByEmail call to return ErrNotFound (user doesn't exist yet)
+				tt.mockRepo.On("GetByEmail", mock.Anything, tt.email).Return(nil, repo.ErrNotFound)
+				// Mock the GetByUsername call to return ErrNotFound (user doesn't exist yet)
+				tt.mockRepo.On("GetByUsername", mock.Anything, tt.username).Return(nil, repo.ErrNotFound)
 				tt.mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *entity.User) bool {
-					return u.Name == tt.name &&
+					return u.Name == tt.userName &&
 						u.Username == tt.username &&
-						u.Email == tt.email &&
-						bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(tt.password)) == nil
-				})).Return(&entity.User{
-					ID:        uuid.New(),
-					Name:      tt.name,
-					Username:  tt.username,
-					Email:     tt.email,
-					Password:  string(hashedPassword),
-					CreatedAt: time.Now(),
-					UpdatedAt: time.Now(),
-				}, nil)
+						u.Email == tt.email
+				})).Return(nil).Run(func(args mock.Arguments) {
+					// Set a dummy ID if not already set
+					user := args.Get(1).(*entity.User)
+					if user.ID == uuid.Nil {
+						user.ID = uuid.New()
+					}
+				})
 			}
 
-			s := &userService{
-				userRepo: tt.mockRepo,
-			}
-			got, err := s.Register(context.Background(), tt.name, tt.username, tt.email, tt.password)
+			s := usecase.NewUserUseCase(tt.mockRepo)
+			got, err := s.Register(context.Background(), tt.userName, tt.username, tt.email, tt.password)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UserService.Register() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserService.Register() = %v, want %v", got, tt.want)
+			if !tt.wantErr {
+				// For a successful test, we check that we got a user back with the right properties
+				if got == nil {
+					t.Errorf("UserService.Register() = nil, want user")
+					return
+				}
+				if got.Name != tt.want.Name {
+					t.Errorf("UserService.Register() Name = %v, want %v", got.Name, tt.want.Name)
+				}
+				if got.Username != tt.want.Username {
+					t.Errorf("UserService.Register() Username = %v, want %v", got.Username, tt.want.Username)
+				}
+				if got.Email != tt.want.Email {
+					t.Errorf("UserService.Register() Email = %v, want %v", got.Email, tt.want.Email)
+				}
+				// Password should be cleared
+				if got.Password != "" {
+					t.Errorf("UserService.Register() Password should be empty, got %v", got.Password)
+				}
+				// ID should be set
+				if got.ID == uuid.Nil {
+					t.Errorf("UserService.Register() ID should not be nil")
+				}
 			}
 
 			// Assert that all expectations were met

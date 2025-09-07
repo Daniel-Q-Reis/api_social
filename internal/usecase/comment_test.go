@@ -3,9 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
 	"social/api/internal/entity"
 	"social/api/internal/repo"
@@ -19,27 +17,21 @@ import (
 func TestCommentService_AddComment(t *testing.T) {
 	tests := []struct {
 		name            string
-		_mockUserRepo   *repoMocks.UserRepoMock
-		mockCommentRepo *repoMocks.CommentRepoMock
+		mockUserRepo    *UserRepoMock
+		mockCommentRepo *CommentRepoMock
 		postID          uuid.UUID
 		userID          uuid.UUID
 		content         string
-		want            *entity.Comment
 		wantErr         bool
 	}{
 		{
 			name:            "ValidComment",
-			_mockUserRepo:   &repoMocks.UserRepoMock{},
-			mockCommentRepo: &repoMocks.CommentRepoMock{},
+			mockUserRepo:    &UserRepoMock{},
+			mockCommentRepo: &CommentRepoMock{},
 			postID:          uuid.New(),
 			userID:          uuid.New(),
 			content:         "This is a test comment",
-			want: &entity.Comment{
-				PostID:   uuid.New(),
-				AuthorID: uuid.New(),
-				Content:  "This is a test comment",
-			},
-			wantErr: false,
+			wantErr:         false,
 		},
 	}
 
@@ -47,34 +39,47 @@ func TestCommentService_AddComment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup mock expectations
 			if !tt.wantErr {
-				tt.mockUserRepo.On("GetByID", mock.Anything, tt.userID).Return(&entity.User{}, nil)
+				// For AddComment, we only need to mock the post existence check
 				tt.mockCommentRepo.On("Create", mock.Anything, mock.MatchedBy(func(c *entity.Comment) bool {
 					return c.PostID == tt.postID && c.AuthorID == tt.userID && c.Content == tt.content
-				})).Return(&entity.Comment{
-					ID:        uuid.New(),
-					PostID:    tt.postID,
-					AuthorID:  tt.userID,
-					Content:   tt.content,
-					CreatedAt: time.Now(),
-				}, nil)
+				})).Return(nil)
 			}
 
-			s := &commentService{
-				userRepo:    tt._mockUserRepo,
-				commentRepo: tt.mockCommentRepo,
-			}
+			// We need to create a mock PostRepo for the AddComment method
+			mockPostRepo := &PostRepoMock{}
+			// Mock the post existence check
+			mockPostRepo.On("GetByID", mock.Anything, tt.postID).Return(&entity.Post{ID: tt.postID}, nil)
+
+			s := usecase.NewCommentUseCase(tt.mockCommentRepo, tt.mockUserRepo, mockPostRepo)
 			got, err := s.AddComment(context.Background(), tt.postID, tt.userID, tt.content)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CommentService.AddComment() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CommentService.AddComment() = %v, want %v", got, tt.want)
+			if !tt.wantErr {
+				// For a successful test, we just check that we got a comment back with the right properties
+				if got == nil {
+					t.Errorf("CommentService.AddComment() = nil, want comment")
+					return
+				}
+				if got.PostID != tt.postID {
+					t.Errorf("CommentService.AddComment() PostID = %v, want %v", got.PostID, tt.postID)
+				}
+				if got.AuthorID != tt.userID {
+					t.Errorf("CommentService.AddComment() AuthorID = %v, want %v", got.AuthorID, tt.userID)
+				}
+				if got.Content != tt.content {
+					t.Errorf("CommentService.AddComment() Content = %v, want %v", got.Content, tt.content)
+				}
+				if got.ID == uuid.Nil {
+					t.Errorf("CommentService.AddComment() ID should not be nil")
+				}
 			}
 
 			// Assert that all expectations were met
-			tt._mockUserRepo.AssertExpectations(t)
+			tt.mockUserRepo.AssertExpectations(t)
 			tt.mockCommentRepo.AssertExpectations(t)
+			mockPostRepo.AssertExpectations(t)
 		})
 	}
 }
